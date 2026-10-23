@@ -656,32 +656,162 @@ export class Village {
       this.createWatchtower(project.pos);
     } else if (project.type === 'windmill') {
       this.createWindmill(project.pos);
+    } else if (project.type === 'marketSquare') {
+      this.createMarketSquare(project.pos);
+    } else if (project.type === 'farmPlotExpansion') {
+      this.createFarmPlotExpansion(project.pos);
+    } else if (project.type === 'barracks') {
+      this.createBarracks(project.pos, 0.2);
+    } else if (project.type === 'townHall') {
+      this.createTownHall(project.pos, 0.1);
     }
 
     // Construct dynamic road connector to the nearest village road
     const nearestRoadPoint = this.getNearestPathPoint(project.pos);
     if (nearestRoadPoint) {
       this.createRoadConnector(project.pos, nearestRoadPoint);
+      // Erect cozy street lamppost along the new street connector
+      const mid = new THREE.Vector3().addVectors(project.pos, nearestRoadPoint).multiplyScalar(0.5);
+      this.createLamppost(new THREE.Vector3(mid.x + 1.8, 0, mid.z + 1.2));
     }
 
-    // Check Era Progression
+    // Check Era Progression & Civilization Milestones
     if (project.type === 'blacksmith' && this.era < 2) {
       this.era = 2;
       this.eraName = 'Age II: Stone Township & Forge';
-      this.resources.iron += 25;
+      this.resources.iron += 30;
       this.logEvent(`⚔️ Civilization Advanced! Reached ${this.eraName}!`, 'milestone');
     } else if (project.type === 'watchtower' && this.era < 3) {
       this.era = 3;
       this.eraName = 'Age III: Fortified Citadel';
-      this.resources.weapons += 8;
-      this.resources.armor += 6;
+      this.resources.weapons += 12;
+      this.resources.armor += 8;
       this.logEvent(`🛡️ Civilization Advanced! Reached ${this.eraName}!`, 'milestone');
+    } else if (project.type === 'townHall' && this.era < 4) {
+      this.era = 4;
+      this.eraName = 'Age IV: Flourishing Realm';
+      this.resources.wood += 50;
+      this.resources.stone += 50;
+      this.resources.food += 50;
+      this.logEvent(`👑 Civilization Advanced! Reached ${this.eraName}!`, 'milestone');
     } else {
       this.logEvent(`🎉 Finished construction of ${project.name}!`, 'milestone');
     }
 
-    // Attempt next project
+    // Check and queue next expansion blueprints
+    this.checkQueueNextExpansionProjects();
     this.checkAutoStartProject();
+  }
+
+  checkQueueNextExpansionProjects() {
+    const uncompleted = this.projects.filter(p => p.status !== 'COMPLETED');
+    if (uncompleted.length > 0) return;
+
+    this.expansionStage = (this.expansionStage || 0) + 1;
+
+    if (this.expansionStage === 1) {
+      // Tier 2: Commerce & Agricultural Expansion
+      this.projects.push(
+        {
+          id: 'marketSquare',
+          name: 'Vibrant Village Market & Stalls',
+          type: 'marketSquare',
+          pos: new THREE.Vector3(76, 0, 36),
+          cost: { wood: 45, stone: 30 },
+          status: 'PLANNED',
+          progress: 0,
+          scaffoldMesh: null
+        },
+        {
+          id: 'farmPlotExpansion',
+          name: 'Community Farm Plot B (Carrots & Pumpkins)',
+          type: 'farmPlotExpansion',
+          pos: new THREE.Vector3(36, 0, 64),
+          cost: { wood: 35, stone: 15 },
+          status: 'PLANNED',
+          progress: 0,
+          scaffoldMesh: null
+        }
+      );
+      this.logEvent('📜 Town Council approved Stage II Expansion: Market Square & Farm Plot B!', 'milestone');
+    } else if (this.expansionStage === 2) {
+      // Tier 3: Housing & Fortified Garrison
+      this.projects.push(
+        {
+          id: 'cottageD',
+          name: 'Cozy Cottage D (Terracotta Roof)',
+          type: 'cottage',
+          pos: new THREE.Vector3(102, 0, 36),
+          cost: { wood: 35, stone: 20 },
+          status: 'PLANNED',
+          progress: 0,
+          roofColor: 0xea580c,
+          wallColor: 0xfef9c3,
+          scaffoldMesh: null
+        },
+        {
+          id: 'barracks',
+          name: 'Guard Barracks & Archery Range',
+          type: 'barracks',
+          pos: new THREE.Vector3(42, 0, 24),
+          cost: { wood: 50, stone: 40 },
+          status: 'PLANNED',
+          progress: 0,
+          scaffoldMesh: null
+        }
+      );
+      this.logEvent('📜 Town Council approved Stage III Expansion: Cottage D & Guard Barracks!', 'milestone');
+    } else if (this.expansionStage === 3) {
+      // Tier 4: Grand Town Hall & Capital Realm
+      this.projects.push(
+        {
+          id: 'townHall',
+          name: 'Grand Town Hall & Clocktower',
+          type: 'townHall',
+          pos: new THREE.Vector3(68, 0, 48),
+          cost: { wood: 65, stone: 55 },
+          status: 'PLANNED',
+          progress: 0,
+          scaffoldMesh: null
+        },
+        {
+          id: 'cottageE',
+          name: 'Cozy Cottage E (Cobalt Blue Roof)',
+          type: 'cottage',
+          pos: new THREE.Vector3(88, 0, 62),
+          cost: { wood: 40, stone: 25 },
+          status: 'PLANNED',
+          progress: 0,
+          roofColor: 0x1d4ed8,
+          wallColor: 0xf1f5f9,
+          scaffoldMesh: null
+        }
+      );
+      this.logEvent('📜 Town Council approved Stage IV Expansion: Grand Town Hall & Cottage E!', 'milestone');
+    } else {
+      // Continuing cyclical expansion: more settler cottages and estates
+      const cottageNum = this.expansionStage + 2;
+      const angle = (this.expansionStage * 0.9) % (Math.PI * 2);
+      const rad = 24 + (this.expansionStage % 3) * 7;
+      const px = 65 + Math.cos(angle) * rad;
+      const pz = 35 + Math.sin(angle) * rad;
+      const colors = [0x16a34a, 0x2563eb, 0xd97706, 0x9333ea, 0xdc2626];
+      const roofCol = colors[this.expansionStage % colors.length];
+
+      this.projects.push({
+        id: `cottage_${cottageNum}`,
+        name: `Settler Cottage #${cottageNum}`,
+        type: 'cottage',
+        pos: new THREE.Vector3(px, 0, pz),
+        cost: { wood: 35, stone: 20 },
+        status: 'PLANNED',
+        progress: 0,
+        roofColor: roofCol,
+        wallColor: 0xfef9c3,
+        scaffoldMesh: null
+      });
+      this.logEvent(`📜 Town Council approved construction of Settler Cottage #${cottageNum}!`, 'milestone');
+    }
   }
 
   getNearestPathPoint(pos) {
@@ -962,7 +1092,366 @@ export class Village {
     group.add(this.windmillSails);
 
     this.scene.add(group);
-    this.buildings.push({ type: 'windmill', position: group.position });
+    this.buildings.push({ type: 'windmill', position: group.position, rx: 4.0, rz: 4.0 });
+  }
+
+  // =========================================================================
+  // EXPANSION BUILDINGS: MARKET, FARM B, BARRACKS, TOWN HALL
+  // =========================================================================
+  createMarketSquare(pos) {
+    const group = new THREE.Group();
+    const y = this.terrain.getHeight(pos.x, pos.z);
+    group.position.set(pos.x, y, pos.z);
+
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.95, flatShading: true });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 });
+    const redStripeMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.7 });
+    const blueStripeMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 });
+    const greenStripeMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.7 });
+    const whiteStripeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.7 });
+
+    // Cobblestone Marketplace Plaza Bed
+    const plaza = new THREE.Mesh(new THREE.BoxGeometry(11, 0.15, 9), stoneMat);
+    plaza.position.y = 0.08;
+    plaza.receiveShadow = true;
+    group.add(plaza);
+
+    // Helper: Build a vibrant market stall with striped awning
+    const buildStall = (sx, sz, rotY, awningColor1) => {
+      const stall = new THREE.Group();
+      stall.position.set(sx, 0.1, sz);
+      stall.rotation.y = rotY;
+
+      // Wooden counter table
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.1, 1.4), woodMat);
+      counter.position.y = 0.55;
+      counter.castShadow = true;
+      stall.add(counter);
+
+      // 4 Canopy Awning Posts
+      const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.8, 5);
+      [[-1.4, -0.6], [1.4, -0.6], [-1.4, 0.6], [1.4, 0.6]].forEach(([px, pz]) => {
+        const p = new THREE.Mesh(postGeo, woodMat);
+        p.position.set(px, 1.4, pz);
+        stall.add(p);
+      });
+
+      // Striped Sloped Fabric Awning
+      const awn1 = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.9), awningColor1);
+      awn1.position.set(0, 2.75, -0.4);
+      awn1.rotation.x = 0.2;
+      const awn2 = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.9), whiteStripeMat);
+      awn2.position.set(0, 2.75, 0.4);
+      awn2.rotation.x = -0.2;
+      stall.add(awn1, awn2);
+
+      // Produce Display Crates
+      const crate1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.6), crateMat);
+      crate1.position.set(-0.8, 1.25, 0.1);
+      const crate2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.6), crateMat);
+      crate2.position.set(0.6, 1.25, 0.1);
+      stall.add(crate1, crate2);
+
+      // Apples & Produce Spheres
+      const appleMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 });
+      for (let i = 0; i < 4; i++) {
+        const apple = new THREE.Mesh(new THREE.SphereGeometry(0.09, 5, 5), appleMat);
+        apple.position.set(-0.9 + (i % 2) * 0.2, 1.48, (i > 1 ? 0.18 : -0.05));
+        stall.add(apple);
+      }
+
+      // Bread Loaves
+      const breadMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 });
+      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), breadMat);
+      loaf.scale.set(1.4, 0.8, 0.9);
+      loaf.position.set(0.6, 1.48, 0.1);
+      stall.add(loaf);
+
+      group.add(stall);
+    };
+
+    // Stall 1: Fruit & Baker (Red)
+    buildStall(-2.8, -2.0, 0, redStripeMat);
+    // Stall 2: Fish & Merchant (Blue)
+    buildStall(2.8, -2.0, 0, blueStripeMat);
+    // Stall 3: Apothecary & Herbs (Green)
+    buildStall(0, 2.2, Math.PI, greenStripeMat);
+
+    // Central Market Square Lamppost
+    const lampPost = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.6, 6), woodMat);
+    lampPost.position.set(0, 1.8, 0);
+    group.add(lampPost);
+    const lampLight = new THREE.PointLight(0xfef08a, 1.2, 14);
+    lampLight.position.set(0, 3.6, 0);
+    group.add(lampLight);
+
+    // Village Noticeboard Stake
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 0.1), woodMat);
+    board.position.set(-4.2, 1.8, 2.6);
+    const paper = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.04), whiteStripeMat);
+    paper.position.set(-4.2, 1.8, 2.7);
+    group.add(board, paper);
+
+    this.scene.add(group);
+    this.buildings.push({ type: 'marketSquare', position: group.position, rx: 5.5, rz: 4.5 });
+  }
+
+  createFarmPlotExpansion(pos) {
+    const farmGroup = new THREE.Group();
+    const y = this.terrain.getHeight(pos.x, pos.z);
+    farmGroup.position.set(pos.x, y, pos.z);
+
+    const soilMat = new THREE.MeshStandardMaterial({ color: 0x3d2514, roughness: 0.95, flatShading: true });
+    const fenceMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+    const carrotMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 });
+    const pumpkinMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.6, flatShading: true });
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0x15803d });
+
+    // 1. Tilled Soil Bed (16m x 12m)
+    const soilBed = new THREE.Mesh(new THREE.BoxGeometry(16, 0.2, 12), soilMat);
+    soilBed.position.y = 0.1;
+    soilBed.receiveShadow = true;
+    farmGroup.add(soilBed);
+
+    // 2. Carrot Rows (Orange carrots with bushy green tops)
+    const carrotConeGeo = new THREE.ConeGeometry(0.08, 0.35, 6);
+    const carrotLeafGeo = new THREE.CylinderGeometry(0.02, 0.05, 0.4, 4);
+
+    for (let c = -6.0; c <= 6.0; c += 1.8) {
+      for (let r of [-3.2, -1.2]) {
+        const carrot = new THREE.Group();
+        carrot.position.set(c + (Math.random() - 0.5) * 0.3, 0.22, r + (Math.random() - 0.5) * 0.2);
+
+        const root = new THREE.Mesh(carrotConeGeo, carrotMat);
+        root.rotation.x = Math.PI;
+        root.position.y = 0.1;
+        const leaves = new THREE.Mesh(carrotLeafGeo, leafMat);
+        leaves.position.y = 0.35;
+
+        carrot.add(root, leaves);
+        farmGroup.add(carrot);
+
+        this.wheatCrops.push({
+          mesh: carrot,
+          originalY: carrot.position.y,
+          ripe: true,
+          harvestTimer: 0
+        });
+      }
+    }
+
+    // 3. Pumpkin Patch (Plump orange pumpkins with dark green curly stems)
+    const pumpkinGeo = new THREE.SphereGeometry(0.38, 8, 7);
+    pumpkinGeo.scale(1.15, 0.85, 1.15);
+    const pStemGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.22, 5);
+
+    for (let c = -5.5; c <= 5.5; c += 2.2) {
+      for (let r of [1.4, 3.4]) {
+        const pumpkin = new THREE.Group();
+        pumpkin.position.set(c + (Math.random() - 0.5) * 0.4, 0.4, r + (Math.random() - 0.5) * 0.3);
+
+        const fruit = new THREE.Mesh(pumpkinGeo, pumpkinMat);
+        fruit.castShadow = true;
+        const stem = new THREE.Mesh(pStemGeo, stemMat);
+        stem.position.y = 0.35;
+        stem.rotation.z = 0.25;
+
+        pumpkin.add(fruit, stem);
+        farmGroup.add(pumpkin);
+
+        this.wheatCrops.push({
+          mesh: pumpkin,
+          originalY: pumpkin.position.y,
+          ripe: true,
+          harvestTimer: 0
+        });
+      }
+    }
+
+    // 4. Split-Rail Boundary Fence with Open South Entrance
+    const postGeo = new THREE.CylinderGeometry(0.08, 0.09, 1.2, 5);
+    for (let x = -8; x <= 8; x += 3.2) {
+      if (Math.abs(x) > 2.0) {
+        const pN = new THREE.Mesh(postGeo, fenceMat);
+        pN.position.set(x, 0.6, -6);
+        farmGroup.add(pN);
+      }
+      const pS = new THREE.Mesh(postGeo, fenceMat);
+      pS.position.set(x, 0.6, 6);
+      farmGroup.add(pS);
+    }
+    for (let z = -5; z <= 5; z += 2.5) {
+      const pL = new THREE.Mesh(postGeo, fenceMat);
+      pL.position.set(-8, 0.6, z);
+      const pR = new THREE.Mesh(postGeo, fenceMat);
+      pR.position.set(8, 0.6, z);
+      farmGroup.add(pL, pR);
+    }
+
+    this.scene.add(farmGroup);
+    this.farmPlots.push({
+      center: new THREE.Vector3(pos.x, y, pos.z),
+      harvestPos: new THREE.Vector3(pos.x, y, pos.z - 2.5),
+      tendingPos: new THREE.Vector3(pos.x + 3.0, y, pos.z + 1.5)
+    });
+    this.buildings.push({ type: 'farmExpansion', position: farmGroup.position, rx: 8.5, rz: 6.5 });
+  }
+
+  createBarracks(pos, rotationY = 0) {
+    const group = new THREE.Group();
+    const y = this.terrain.getHeight(pos.x, pos.z);
+    group.position.set(pos.x, y, pos.z);
+    group.rotation.y = rotationY;
+
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.95, flatShading: true });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x543217, roughness: 0.85 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, flatShading: true }); // Slate grey roof
+    const bannerMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.6 }); // Guard royal blue
+    const strawMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.9 });
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8, roughness: 0.3 });
+
+    // Fortified Garrison Barracks Body
+    const w = 8.5, h = 4.8, d = 5.5;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stoneMat);
+    body.position.y = h * 0.5;
+    body.castShadow = true;
+    group.add(body);
+
+    // Slate Gable Roof with Battlements
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(6.4, 2.8, 4), roofMat);
+    roof.position.y = h + 1.2;
+    roof.rotateY(Math.PI * 0.25);
+    roof.scale.set(1.35, 1.0, 1.0);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // Sturdy Reinforced Timber Door
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.6, 0.2), woodMat);
+    door.position.set(0, 1.3, d * 0.5 + 0.05);
+    group.add(door);
+
+    // Wall Lantern
+    const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.3), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+    lantern.position.set(1.4, 2.4, d * 0.5 + 0.2);
+    group.add(lantern);
+    const lampLight = new THREE.PointLight(0xfef08a, 1.2, 10);
+    lampLight.position.set(1.4, 2.4, d * 0.5 + 0.3);
+    group.add(lampLight);
+
+    // Outside Training Yard & Combat Sparring Dummy
+    const dummyPost = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 6), woodMat);
+    dummyPost.position.set(3.2, 1.1, 4.2);
+    const dummyBody = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 1.0, 6), strawMat);
+    dummyBody.position.set(3.2, 1.4, 4.2);
+    const dummyHelmet = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.4, 6), ironMat);
+    dummyHelmet.position.set(3.2, 2.05, 4.2);
+    group.add(dummyPost, dummyBody, dummyHelmet);
+
+    // Archery Target on Tripod
+    const targetFace = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 16), bannerMat);
+    targetFace.rotation.x = Math.PI * 0.5;
+    targetFace.position.set(-3.2, 1.6, 4.2);
+    const bullseye = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.12, 16), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+    bullseye.rotation.x = Math.PI * 0.5;
+    bullseye.position.set(-3.2, 1.6, 4.22);
+    group.add(targetFace, bullseye);
+
+    // Guard Heraldic Banner Flag
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 5), woodMat);
+    pole.position.set(-w * 0.45, h + 1.6, d * 0.45);
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.04), bannerMat);
+    flag.position.set(-w * 0.45 + 0.45, h + 2.6, d * 0.45);
+    group.add(pole, flag);
+
+    this.scene.add(group);
+    this.buildings.push({ type: 'barracks', position: group.position, rx: 5.5, rz: 4.8 });
+  }
+
+  createTownHall(pos, rotationY = 0) {
+    const group = new THREE.Group();
+    const y = this.terrain.getHeight(pos.x, pos.z);
+    group.position.set(pos.x, y, pos.z);
+    group.rotation.y = rotationY;
+
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.95, flatShading: true });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.85 }); // Cream stucco upper floor
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0x543217, roughness: 0.85 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.65, flatShading: true }); // Regal crimson roof
+    const winMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+    const bellMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.85, roughness: 0.2 });
+
+    // 1. Solid Stone Lower Floor (10m x 7m x 3.6m)
+    const baseW = 10.0, baseH = 3.6, baseD = 7.0;
+    const lowerFloor = new THREE.Mesh(new THREE.BoxGeometry(baseW, baseH, baseD), stoneMat);
+    lowerFloor.position.y = baseH * 0.5;
+    lowerFloor.castShadow = true;
+    group.add(lowerFloor);
+
+    // 2. Timber-Framed Upper Floor (9.6m x 6.6m x 3.2m)
+    const upperFloor = new THREE.Mesh(new THREE.BoxGeometry(baseW - 0.4, 3.2, baseD - 0.4), wallMat);
+    upperFloor.position.y = baseH + 1.6;
+    upperFloor.castShadow = true;
+    group.add(upperFloor);
+
+    // 3. Steep Peaked Crimson Shingle Roof
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(7.5, 3.8, 4), roofMat);
+    roof.position.y = baseH + 3.2 + 1.7;
+    roof.rotateY(Math.PI * 0.25);
+    roof.scale.set(1.35, 1.0, 1.0);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // 4. Grand Central Clocktower & Bell Tower (Height: 12.5m)
+    const towerW = 2.8, towerH = 6.2;
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(towerW, towerH, towerW), stoneMat);
+    tower.position.set(0, baseH + 3.2 + towerH * 0.5, 0);
+    tower.castShadow = true;
+    group.add(tower);
+
+    // Belfry Arched Open Roof
+    const belfryRoof = new THREE.Mesh(new THREE.ConeGeometry(2.4, 2.4, 4), roofMat);
+    belfryRoof.position.set(0, baseH + 3.2 + towerH + 1.1, 0);
+    belfryRoof.rotateY(Math.PI * 0.25);
+    belfryRoof.castShadow = true;
+    group.add(belfryRoof);
+
+    // Brass Town Bell inside Belfry
+    const bell = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.6, 8), bellMat);
+    bell.position.set(0, baseH + 3.2 + towerH - 0.3, 0);
+    group.add(bell);
+
+    // Four-Sided Clock Face
+    const clockMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+    const clockGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.08, 16);
+    clockGeo.rotateX(Math.PI * 0.5);
+    const clockF = new THREE.Mesh(clockGeo, clockMat);
+    clockF.position.set(0, baseH + 3.2 + towerH * 0.6, towerW * 0.5 + 0.05);
+    group.add(clockF);
+
+    // 5. Arched Entrance Double Door
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.8, 0.2), beamMat);
+    door.position.set(0, 1.4, baseD * 0.5 + 0.05);
+    group.add(door);
+
+    // 6. Lit Town Hall Windows
+    const winGeo = new THREE.BoxGeometry(1.2, 1.2, 0.15);
+    [-2.8, 2.8].forEach(wx => {
+      const w1 = new THREE.Mesh(winGeo, winMat);
+      w1.position.set(wx, 2.0, baseD * 0.5 + 0.05);
+      const w2 = new THREE.Mesh(winGeo, winMat);
+      w2.position.set(wx, baseH + 1.6, baseD * 0.5 + 0.05);
+      group.add(w1, w2);
+    });
+
+    // 7. Stone Entrance Steps
+    const steps = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.35, 1.6), stoneMat);
+    steps.position.set(0, 0.175, baseD * 0.5 + 0.8);
+    group.add(steps);
+
+    this.scene.add(group);
+    this.buildings.push({ type: 'townHall', position: group.position, rx: 6.5, rz: 5.2 });
   }
 
   craftEquipment() {
@@ -982,8 +1471,10 @@ export class Village {
   orderBuild(type) {
     const proj = this.projects.find(p => p.type === type && p.status === 'PLANNED');
     if (proj) {
-      this.startProject(proj);
-      return true;
+      if (this.resources.wood >= proj.cost.wood && this.resources.stone >= proj.cost.stone) {
+        this.startProject(proj);
+        return true;
+      }
     }
     return false;
   }
@@ -1023,13 +1514,33 @@ export class Village {
     // East Hill Gate: Road passes along X at z = 44. Pillars span Z from 41.8 to 46.2
     // South River Gate: Road passes along Z at x = 54. Pillars span X from 51.8 to 56.2
     const gateDefs = [
-      { name: 'West Wilderness Gate', pos: new THREE.Vector3(34, 0, 35), rotY: Math.PI * 0.5 },
-      { name: 'North-East Hill Gate', pos: new THREE.Vector3(96, 0, 44), rotY: Math.PI * 0.5 },
-      { name: 'South River Gate', pos: new THREE.Vector3(54, 0, 10), rotY: 0 }
+      {
+        name: 'West Wilderness Gate',
+        pos: new THREE.Vector3(34, 0, 35),
+        rotY: Math.PI * 0.5,
+        insidePos: new THREE.Vector3(38.0, 0, 35.0),
+        outsidePos: new THREE.Vector3(29.5, 0, 35.0)
+      },
+      {
+        name: 'North-East Hill Gate',
+        pos: new THREE.Vector3(96, 0, 44),
+        rotY: Math.PI * 0.5,
+        insidePos: new THREE.Vector3(91.5, 0, 44.0),
+        outsidePos: new THREE.Vector3(100.5, 0, 44.0)
+      },
+      {
+        name: 'South River Gate',
+        pos: new THREE.Vector3(54, 0, 10),
+        rotY: 0,
+        insidePos: new THREE.Vector3(54.0, 0, 14.5),
+        outsidePos: new THREE.Vector3(54.0, 0, 5.5)
+      }
     ];
 
     gateDefs.forEach(g => {
       g.pos.y = this.terrain.getHeight(g.pos.x, g.pos.z);
+      g.insidePos.y = this.terrain.getHeight(g.insidePos.x, g.insidePos.z);
+      g.outsidePos.y = this.terrain.getHeight(g.outsidePos.x, g.outsidePos.z);
       this.gates.push(g);
 
       // Create Fortified Archway Gate
@@ -1363,7 +1874,19 @@ export class Village {
       }
     }
 
-    // Regrow harvested wheat crops on farm
+    // Market Square generates trade resources periodically
+    const hasMarket = this.buildings.some(b => b.type === 'marketSquare');
+    if (hasMarket) {
+      this.marketTimer = (this.marketTimer || 0) + delta;
+      if (this.marketTimer > 12) {
+        this.marketTimer = 0;
+        this.resources.food += 2;
+        this.resources.wood += 2;
+        this.resources.stone += 2;
+      }
+    }
+
+    // Regrow harvested wheat and farm crops
     if (this.wheatCrops) {
       this.wheatCrops.forEach(c => {
         if (!c.ripe) {
@@ -1378,6 +1901,14 @@ export class Village {
           }
         }
       });
+    }
+
+    // Periodic check to auto-start projects and plan next expansion stages
+    this.projectCheckTimer = (this.projectCheckTimer || 0) + delta;
+    if (this.projectCheckTimer > 3.0) {
+      this.projectCheckTimer = 0;
+      this.checkQueueNextExpansionProjects();
+      this.checkAutoStartProject();
     }
   }
 
@@ -1467,16 +1998,34 @@ export class Village {
       }
     }
 
-    // 3. Solid Buildings Collision (Cottages, Well, Sawmill)
-    const buildingObstacles = [
+    // 3. Dynamic Solid Buildings Collision (All constructed village structures)
+    const baseObstacles = [
       { x: 80, z: 50, rx: 4.0, rz: 3.5 }, // Cottage A
       { x: 86, z: 28, rx: 4.0, rz: 3.5 }, // Cottage B
       { x: 54, z: 14, rx: 4.4, rz: 3.5 }, // Sawmill
       { x: 64, z: 38, radius: 2.1 }        // Stone Well
     ];
 
-    for (let i = 0; i < buildingObstacles.length; i++) {
-      const b = buildingObstacles[i];
+    const allObstacles = [...baseObstacles];
+    if (this.buildings) {
+      for (let i = 0; i < this.buildings.length; i++) {
+        const b = this.buildings[i];
+        if (['cottage', 'blacksmith', 'watchtower', 'windmill', 'marketSquare', 'barracks', 'townHall'].includes(b.type)) {
+          const p = b.position || b.pos;
+          if (p) {
+            allObstacles.push({
+              x: p.x,
+              z: p.z,
+              rx: b.rx || 3.8,
+              rz: b.rz || 3.4
+            });
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < allObstacles.length; i++) {
+      const b = allObstacles[i];
       if (b.radius) {
         const d = Math.hypot(resolvedX - b.x, resolvedZ - b.z);
         const minDist = b.radius + creatureRadius;
@@ -1507,29 +2056,95 @@ export class Village {
     return { x: resolvedX, z: resolvedZ, blocked };
   }
 
-  // If moving between inside and outside the village palisade, route through nearest open gate
+  // If moving between inside and outside the village palisade, route cleanly through the open gate
   getGateWaypoint(currentPos, targetPos) {
-    if (this.gates.length === 0) return null;
+    if (!this.gates || this.gates.length === 0) return null;
 
     const curInside = this.isInsideVillage(currentPos.x, currentPos.z);
     const tarInside = this.isInsideVillage(targetPos.x, targetPos.z);
 
+    // If both inside or both outside, direct travel is fine
     if (curInside === tarInside) return null;
 
     let bestGate = null;
-    let minDist = Infinity;
-    for (let i = 0; i < this.gates.length; i++) {
-      const g = this.gates[i];
-      const d = Math.hypot(currentPos.x - g.pos.x, currentPos.z - g.pos.z);
-      if (d < minDist) {
-        minDist = d;
-        bestGate = g;
+    let minRouteCost = Infinity;
+
+    if (curInside && !tarInside) {
+      // Inside heading OUT: find gate that minimizes path to insidePos then outsidePos to targetPos
+      for (let i = 0; i < this.gates.length; i++) {
+        const g = this.gates[i];
+        const inPt = g.insidePos || g.pos;
+        const outPt = g.outsidePos || g.pos;
+        const cost = Math.hypot(currentPos.x - inPt.x, currentPos.z - inPt.z) +
+                     Math.hypot(targetPos.x - outPt.x, targetPos.z - outPt.z);
+        if (cost < minRouteCost) {
+          minRouteCost = cost;
+          bestGate = g;
+        }
+      }
+
+      if (bestGate) {
+        const inPt = bestGate.insidePos || bestGate.pos;
+        const outPt = bestGate.outsidePos || bestGate.pos;
+
+        const dirX = outPt.x - inPt.x;
+        const dirZ = outPt.z - inPt.z;
+        const lenSq = dirX * dirX + dirZ * dirZ;
+
+        if (lenSq > 0.001) {
+          // Progress vector along insidePos -> outsidePos
+          const toCurX = currentPos.x - inPt.x;
+          const toCurZ = currentPos.z - inPt.z;
+          const progress = (toCurX * dirX + toCurZ * dirZ) / lenSq;
+
+          // If creature has not yet reached the inside threshold, steer to inside staging point
+          if (progress < 0.25) {
+            return inPt;
+          }
+          // Once at or past inside threshold, steer through the gate towards outside point
+          return outPt;
+        }
+        return outPt;
+      }
+    } else {
+      // Outside heading IN: find gate that minimizes path to outsidePos then insidePos to targetPos
+      for (let i = 0; i < this.gates.length; i++) {
+        const g = this.gates[i];
+        const inPt = g.insidePos || g.pos;
+        const outPt = g.outsidePos || g.pos;
+        const cost = Math.hypot(currentPos.x - outPt.x, currentPos.z - outPt.z) +
+                     Math.hypot(targetPos.x - inPt.x, targetPos.z - inPt.z);
+        if (cost < minRouteCost) {
+          minRouteCost = cost;
+          bestGate = g;
+        }
+      }
+
+      if (bestGate) {
+        const inPt = bestGate.insidePos || bestGate.pos;
+        const outPt = bestGate.outsidePos || bestGate.pos;
+
+        const dirX = inPt.x - outPt.x;
+        const dirZ = inPt.z - outPt.z;
+        const lenSq = dirX * dirX + dirZ * dirZ;
+
+        if (lenSq > 0.001) {
+          // Progress vector along outsidePos -> insidePos
+          const toCurX = currentPos.x - outPt.x;
+          const toCurZ = currentPos.z - outPt.z;
+          const progress = (toCurX * dirX + toCurZ * dirZ) / lenSq;
+
+          // If creature has not yet reached outside threshold, steer to outside point
+          if (progress < 0.25) {
+            return outPt;
+          }
+          // Once at or past outside threshold, steer through the gate into the settlement
+          return inPt;
+        }
+        return inPt;
       }
     }
 
-    if (bestGate && minDist > 3.2) {
-      return bestGate.pos;
-    }
     return null;
   }
 }

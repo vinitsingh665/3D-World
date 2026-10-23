@@ -27,9 +27,7 @@ export class Human extends Animal {
     this.energy = 90;
 
     // Assigned home & workstations
-    this.homeCottage = (Math.random() < 0.5)
-      ? new THREE.Vector3(80, 0, 50)
-      : new THREE.Vector3(86, 0, 28);
+    this.homeCottage = this.pickHomeCottage();
     this.workstation = this.getProfessionWorkstation();
 
     // Equipment state
@@ -54,6 +52,18 @@ export class Human extends Animal {
     this.initModel();
     this.assignInitialGear();
     this.pickPathWaypoint();
+  }
+
+  pickHomeCottage() {
+    if (this.village && this.village.buildings) {
+      const cottages = this.village.buildings.filter(b => b.type === 'cottage');
+      if (cottages.length > 0) {
+        const c = cottages[Math.floor(Math.random() * cottages.length)];
+        const p = c.position || c.pos;
+        if (p) return new THREE.Vector3(p.x, this.terrain.getHeight(p.x, p.z), p.z);
+      }
+    }
+    return (Math.random() < 0.5) ? new THREE.Vector3(80, 0, 50) : new THREE.Vector3(86, 0, 28);
   }
 
   getProfessionWorkstation() {
@@ -401,6 +411,21 @@ export class Human extends Animal {
     }
   }
 
+  steerTowards(targetPos, desiredSpeed, delta, separationVec = null) {
+    if (!targetPos) return;
+
+    let target = targetPos;
+    // If traveling across the settlement perimeter palisade, route through the nearest open gate
+    if (this.village && this.village.getGateWaypoint) {
+      const gateWp = this.village.getGateWaypoint(this.position, targetPos);
+      if (gateWp) {
+        target = gateWp;
+      }
+    }
+
+    super.steerTowards(target, desiredSpeed, delta, separationVec);
+  }
+
   update(delta, ecosystem) {
     this.ecosystem = ecosystem;
     if (!this.isAlive) return;
@@ -422,7 +447,7 @@ export class Human extends Animal {
       // -----------------------------------------------------------------------
       case 'SEEK_TREE':
         if (!this.targetResource || this.targetResource.isHarvested) {
-          this.targetResource = ecosystem.biomeScatter.getNearestTree(this.position, 95);
+          this.targetResource = ecosystem.biomeScatter.getNearestTree(this.position, 135);
         }
         if (this.targetResource) {
           this.steerTowards(this.targetResource.position, this.walkSpeed, delta, sep);
@@ -458,7 +483,7 @@ export class Human extends Animal {
 
       case 'SEEK_ROCK':
         if (!this.targetResource || this.targetResource.isHarvested) {
-          this.targetResource = ecosystem.biomeScatter.getNearestRock(this.position, 95);
+          this.targetResource = ecosystem.biomeScatter.getNearestRock(this.position, 135);
         }
         if (this.targetResource) {
           this.steerTowards(this.targetResource.position, this.walkSpeed, delta, sep);
@@ -608,8 +633,8 @@ export class Human extends Animal {
       // -----------------------------------------------------------------------
       case 'SEEK_PREY':
         if (!this.targetPrey || !this.targetPrey.isAlive) {
-          this.targetPrey = ecosystem.getNearestRabbit(this.position, 60) ||
-                            ecosystem.getNearestPrey(this.position, 60);
+          this.targetPrey = ecosystem.getNearestRabbit(this.position, 140) ||
+                            ecosystem.getNearestPrey(this.position, 140);
         }
         if (this.targetPrey && this.targetPrey.isAlive) {
           this.steerTowards(this.targetPrey.position, this.runSpeed * 0.9, delta, sep);
@@ -675,13 +700,14 @@ export class Human extends Animal {
 
       case 'PATROL_PERIMETER':
         if (!this.targetWaypoint) {
-          // Patrol either a gate or perimeter wall point
-          if (this.village.gates && this.village.gates.length > 0 && Math.random() < 0.6) {
+          // Patrol gates (both inner courtyard and outer sentry post) or inner ramparts
+          if (this.village.gates && this.village.gates.length > 0 && Math.random() < 0.7) {
             const gate = this.village.gates[Math.floor(Math.random() * this.village.gates.length)];
-            this.targetWaypoint = gate.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2, 0, (Math.random() - 0.5) * 2));
+            const targetPos = Math.random() < 0.5 ? gate.insidePos : gate.outsidePos;
+            this.targetWaypoint = targetPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5));
           } else {
             const angle = Math.random() * Math.PI * 2;
-            const r = 38 + Math.random() * 10;
+            const r = 24 + Math.random() * 8; // Inner rampart promenade
             const wx = 65 + Math.cos(angle) * r;
             const wz = 35 + Math.sin(angle) * r;
             this.targetWaypoint = new THREE.Vector3(wx, this.terrain.getHeight(wx, wz), wz);

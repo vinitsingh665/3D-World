@@ -485,15 +485,20 @@ export class Ecosystem {
   checkVillagerReproduction(cottagePos) {
     if (!this.village) return;
     const now = performance.now();
-    if (this.lastVillagerBirth && (now - this.lastVillagerBirth < 14000)) return;
+    if (this.lastVillagerBirth && (now - this.lastVillagerBirth < 11000)) return;
 
     const liveVillagers = this.villagers.filter(v => v.isAlive);
     const cottagesCount = this.village.buildings.filter(b => b.type === 'cottage').length + 2;
-    const maxPop = cottagesCount * 4 + 4; // Scales with village housing
+    const hasTownHall = this.village.buildings.some(b => b.type === 'townHall');
+    const hasBarracks = this.village.buildings.some(b => b.type === 'barracks');
+    const hasMarket = this.village.buildings.some(b => b.type === 'marketSquare');
 
-    if (this.village.resources.food >= 35 && liveVillagers.length < maxPop) {
+    // Population capacity dynamically grows with town development
+    const maxPop = cottagesCount * 5 + (hasTownHall ? 12 : 0) + (hasBarracks ? 6 : 0) + (hasMarket ? 4 : 0) + 8;
+
+    if (this.village.resources.food >= 28 && liveVillagers.length < maxPop) {
       this.lastVillagerBirth = now;
-      this.village.resources.food -= 12;
+      this.village.resources.food -= 10;
       this.spawnBabyVillager(cottagePos);
     }
   }
@@ -590,10 +595,19 @@ export class Ecosystem {
 
     // Village Population Growth: recruit/grow when settlement food is abundant
     this.villageGrowthTimer = (this.villageGrowthTimer || 0) + delta;
-    if (this.villageGrowthTimer > 15) {
+    if (this.villageGrowthTimer > 12) {
       this.villageGrowthTimer = 0;
-      if (this.village && this.village.resources.food >= 40 && this.villagers.filter(v => v.isAlive).length < 22) {
-        this.checkVillagerReproduction(this.village.villageCenter);
+      if (this.village && this.village.resources.food >= 28) {
+        const liveCount = this.villagers.filter(v => v.isAlive).length;
+        const cottagesCount = this.village.buildings.filter(b => b.type === 'cottage').length + 2;
+        const hasTownHall = this.village.buildings.some(b => b.type === 'townHall');
+        const hasBarracks = this.village.buildings.some(b => b.type === 'barracks');
+        const hasMarket = this.village.buildings.some(b => b.type === 'marketSquare');
+        const maxPop = cottagesCount * 5 + (hasTownHall ? 12 : 0) + (hasBarracks ? 6 : 0) + (hasMarket ? 4 : 0) + 8;
+
+        if (liveCount < maxPop) {
+          this.checkVillagerReproduction(this.village.villageCenter);
+        }
       }
     }
   }
