@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Living Biosphere | Procedural World & Autonomous Ecosystem</title>
+    <meta name="description" content="An interactive 3D living ecosystem simulation featuring procedural terrain, celestial day/night cycles, dynamic weather, autonomous wildlife AI, and dual God/FPS camera modes." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="canvas-container"></div>
+      <div id="ui-overlay">
+        <!-- Crosshair for First-Person exploration -->
+        <div id="fps-crosshair" class="fps-crosshair"></div>
+        <div class="click-hint">Click any creature to inspect & track • Left click drag to orbit • Right click drag to pan • Scroll to zoom • Press [C] for FPS</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
